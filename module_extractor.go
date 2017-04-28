@@ -5,7 +5,6 @@ import (
 	"go/ast"
 	"go/token"
 	"io"
-	"os"
 )
 
 type moduleCreator struct {
@@ -14,9 +13,8 @@ type moduleCreator struct {
 }
 
 type moduleExtractor struct {
-	fs        *token.FileSet
-	modules   []moduleCreator
-	inModules bool
+	fs      *token.FileSet
+	modules []moduleCreator
 }
 
 func (m *moduleExtractor) Visit(n ast.Node) ast.Visitor {
@@ -32,9 +30,6 @@ func (m *moduleExtractor) Visit(n ast.Node) ast.Visitor {
 		case *ast.SelectorExpr:
 			if x, ok := fun.X.(*ast.Ident); ok && x.Name == "service" {
 				if fun.Sel.Name == "WithModule" {
-					// TODO
-					ast.Fprint(os.Stderr, m.fs, n, nil)
-					m.inModules = true
 					m.extractWithModule(n.Args)
 					return m
 				}
@@ -48,7 +43,6 @@ func (m *moduleExtractor) Visit(n ast.Node) ast.Visitor {
 }
 
 func (m *moduleExtractor) extractWithModule(args []ast.Expr) {
-	fmt.Println("Extracting args")
 	for _, arg := range args {
 		switch arg := arg.(type) {
 		case *ast.CallExpr:
