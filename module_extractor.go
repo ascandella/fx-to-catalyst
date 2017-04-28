@@ -5,6 +5,7 @@ import (
 	"go/ast"
 	"go/token"
 	"io"
+	"os"
 )
 
 type moduleExtractor struct {
@@ -15,25 +16,27 @@ type moduleExtractor struct {
 func (m *moduleExtractor) Visit(n ast.Node) ast.Visitor {
 	switch n := n.(type) {
 	case *ast.FuncDecl:
-		if n.Name.Name == "main" {
-			return m
+		// We only care about the main func
+		if n.Name.Name != "main" {
+			return nil
 		}
-		return nil
+		return m
 	case *ast.CallExpr:
 		fmt.Printf("Call: %T %+v %+v\n", n.Fun, n.Fun, n.Args)
 		switch fun := n.Fun.(type) {
 		case *ast.SelectorExpr:
 			debug("fun", fun.X)
 			if x, ok := fun.X.(*ast.Ident); ok && x.Name == "service" {
-				if s, ok := fun.Sel.(*ast.Ident); ok && x.Name == "WithModule" {
+				if fun.Sel.Name == "WithModule" {
 					// TODO
+					ast.Fprint(os.Stderr, m.fs, n, nil)
+					return m
 				}
 			}
 		}
 		return m
 
 	default:
-		fmt.Printf("Non-funcdecl: %T %+v\n", n, n)
 		return m
 	}
 }
