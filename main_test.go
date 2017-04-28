@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"io/ioutil"
 	"os"
@@ -13,8 +14,8 @@ import (
 )
 
 const (
-	_testdata      = "testdata"
-	_expectedError = "expected.error"
+	_testdata       = "testdata"
+	_expectedOutput = "expected.output"
 )
 
 func TestRealCases(t *testing.T) {
@@ -32,19 +33,22 @@ func TestRealCases(t *testing.T) {
 		if info.IsDir() {
 			t.Run(path, func(t *testing.T) {
 				out := &bytes.Buffer{}
-				result := runLinter(path)
-				ret := result.summarize(out)
-				maybeError := filepath.Join(path, _expectedError)
+				result := extract(path)
+				// TODO check error codes
+				result.summarize(out)
+				expOut := filepath.Join(path, _expectedOutput)
 
-				if _, err := os.Stat(maybeError); err == nil && !os.IsNotExist(err) {
-					expected, err := ioutil.ReadFile(maybeError)
+				if bs, err := ioutil.ReadFile(expOut); err != nil {
+					assert.Fail(t, "unable to read expected output: %v", err)
 					require.NoError(t, err, "Unable to read expected error file")
-					outScrubbed := strings.Replace(out.String(), path, "", -1)
-					assert.Equal(t, outScrubbed, string(expected))
-					assert.NotEqual(t, 0, ret, "Expected non-zero exit code")
 				} else {
-					assert.Empty(t, out.String(), "Expected no lint erors")
-					assert.Equal(t, 0, ret, "Expected zero exit code")
+					outScrubbed := strings.Replace(out.String(), path, "", -1)
+					lines := bufio.NewScanner(bytes.NewBuffer(bs))
+					for lines.Scan() {
+						line := lines.Text()
+						assert.Contains(t, outScrubbed, line)
+					}
+					require.NoError(t, lines.Err(), "got error scanning output")
 				}
 			})
 		}

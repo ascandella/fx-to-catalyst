@@ -7,11 +7,6 @@ import (
 	"io"
 )
 
-type moduleCreator struct {
-	sel  *ast.SelectorExpr
-	args []ast.Expr
-}
-
 type moduleExtractor struct {
 	fs      *token.FileSet
 	modules []moduleCreator
@@ -47,6 +42,8 @@ func (m *moduleExtractor) extractWithModule(args []ast.Expr) {
 		switch arg := arg.(type) {
 		case *ast.CallExpr:
 			m.addModuleCall(arg)
+		default:
+			// TODO info warn logging
 		}
 	}
 }
@@ -57,7 +54,12 @@ func (m *moduleExtractor) addModuleCall(call *ast.CallExpr) {
 	}
 	switch fun := call.Fun.(type) {
 	case *ast.SelectorExpr:
-		mc.sel = fun
+		mc.fnSel = fun
+		if x, ok := fun.X.(*ast.Ident); ok {
+			mc.pkgSel = x
+		} else {
+			// TODO error logging
+		}
 	default:
 		// TODO error logging
 		return
@@ -75,8 +77,10 @@ func (m *moduleExtractor) summarize(out io.Writer) int {
 		return 1
 	}
 
+	fmt.Fprintf(out, "Modules: \n\n")
+
 	for _, mod := range m.modules {
-		fmt.Fprintf(out, fmt.Sprintf("%+v\n", mod))
+		fmt.Fprintf(out, fmt.Sprintf("\t%v\n", mod))
 	}
 
 	return 0
