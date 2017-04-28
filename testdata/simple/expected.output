@@ -1,1 +1,2 @@
-uhttp.New
+func init()
+catalysthttp.New(registerHTTPers)

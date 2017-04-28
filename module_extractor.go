@@ -77,11 +77,19 @@ func (m *moduleExtractor) summarize(out io.Writer) int {
 		return 1
 	}
 
-	fmt.Fprintf(out, "Modules: \n\n")
+	fmt.Fprintf(out, "Input modules: \n\n")
 
 	for _, mod := range m.modules {
 		fmt.Fprintf(out, fmt.Sprintf("\t%v\n", mod))
 	}
+
+	fmt.Fprintf(out, "\n\nCatalyst func:\n\nfunc init() {\n")
+
+	for _, mod := range m.modules {
+		fmt.Fprintf(out, fmt.Sprintf("\t%s\n", mod.AsCatalyst()))
+	}
+
+	fmt.Fprintf(out, "}\n")
 
 	return 0
 }
