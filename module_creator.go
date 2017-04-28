@@ -50,6 +50,7 @@ func (m moduleCreator) AsCatalyst() string {
 	}
 
 	out := &bytes.Buffer{}
+	out.WriteString("catalyst.Register(")
 	out.WriteString(modName)
 	out.WriteString(".")
 	out.WriteString(m.fnSel.Sel.Name)
@@ -59,7 +60,7 @@ func (m moduleCreator) AsCatalyst() string {
 		m.writeArg(out, arg)
 	}
 
-	out.WriteString(")")
+	out.WriteString("))")
 
 	return out.String()
 }
