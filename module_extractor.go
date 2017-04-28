@@ -73,7 +73,7 @@ func debug(prefix string, node ast.Node) {
 
 func (m *moduleExtractor) summarize(out io.Writer) int {
 	if len(m.modules) == 0 {
-		fmt.Fprintf(out, "[ERROR] No UberFx modules detected")
+		fmt.Fprintf(out, "[ERROR] No UberFx modules detected\n")
 		return 1
 	}
 
