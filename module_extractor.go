@@ -8,9 +8,15 @@ import (
 	"os"
 )
 
+type moduleCreator struct {
+	sel  *ast.SelectorExpr
+	args []ast.Expr
+}
+
 type moduleExtractor struct {
-	fs      *token.FileSet
-	modules []ast.Node
+	fs        *token.FileSet
+	modules   []moduleCreator
+	inModules bool
 }
 
 func (m *moduleExtractor) Visit(n ast.Node) ast.Visitor {
@@ -22,14 +28,14 @@ func (m *moduleExtractor) Visit(n ast.Node) ast.Visitor {
 		}
 		return m
 	case *ast.CallExpr:
-		fmt.Printf("Call: %T %+v %+v\n", n.Fun, n.Fun, n.Args)
 		switch fun := n.Fun.(type) {
 		case *ast.SelectorExpr:
-			debug("fun", fun.X)
 			if x, ok := fun.X.(*ast.Ident); ok && x.Name == "service" {
 				if fun.Sel.Name == "WithModule" {
 					// TODO
 					ast.Fprint(os.Stderr, m.fs, n, nil)
+					m.inModules = true
+					m.extractWithModule(n.Args)
 					return m
 				}
 			}
@@ -41,41 +47,28 @@ func (m *moduleExtractor) Visit(n ast.Node) ast.Visitor {
 	}
 }
 
-func (m *moduleExtractor) extractMain(n *ast.FuncDecl) {
-	for _, stmt := range n.Body.List {
-		debug("statement", stmt)
-		fmt.Println()
-
-		switch stmt := stmt.(type) {
-		case *ast.AssignStmt:
-			fmt.Println("Inspecting assign")
-			m.inspectAssign(stmt)
-		case *ast.ExprStmt:
-			if call, ok := stmt.X.(*ast.CallExpr); ok {
-				m.inspectCall(call)
-			}
+func (m *moduleExtractor) extractWithModule(args []ast.Expr) {
+	fmt.Println("Extracting args")
+	for _, arg := range args {
+		switch arg := arg.(type) {
+		case *ast.CallExpr:
+			m.addModuleCall(arg)
 		}
 	}
 }
 
-func (m *moduleExtractor) inspectAssign(assn *ast.AssignStmt) {
-	debug("assn", assn)
-	for _, lh := range assn.Lhs {
-		debug("lhs", lh)
+func (m *moduleExtractor) addModuleCall(call *ast.CallExpr) {
+	mc := moduleCreator{
+		args: call.Args,
 	}
-	for _, rh := range assn.Rhs {
-		debug("rhs", rh)
+	switch fun := call.Fun.(type) {
+	case *ast.SelectorExpr:
+		mc.sel = fun
+	default:
+		// TODO error logging
+		return
 	}
-}
-
-func (m *moduleExtractor) inspectCall(call *ast.CallExpr) {
-	debug("callexpr", call)
-
-	debug("call fun", call.Fun)
-
-	for _, arg := range call.Args {
-		debug("arg", arg)
-	}
+	m.modules = append(m.modules, mc)
 }
 
 func debug(prefix string, node ast.Node) {
