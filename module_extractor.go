@@ -48,7 +48,7 @@ func (m *moduleExtractor) extractWithModule(args []ast.Expr) {
 		case *ast.CallExpr:
 			m.addModuleCall(arg)
 		default:
-			// TODO info warn logging
+			debug("unknown arg to serice.WithModule, expected *ast.CallExpr, got %T %+v", arg, arg)
 		}
 	}
 }
@@ -63,10 +63,11 @@ func (m *moduleExtractor) addModuleCall(call *ast.CallExpr) {
 		if x, ok := fun.X.(*ast.Ident); ok {
 			mc.pkgSel = x
 		} else {
-			// TODO error logging
+			debug("Unknown selector epr (non-Ident): %T %+v", x, x)
+			return
 		}
 	default:
-		// TODO error logging
+		debug("Unknown call.Fun (non-SelectorExpr): %T %+v", fun, fun)
 		return
 	}
 	m.modules = append(m.modules, mc)

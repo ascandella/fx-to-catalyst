@@ -43,8 +43,7 @@ func TestRealCases(t *testing.T) {
 			expOut := filepath.Join(path, _expectedOutput)
 
 			if bs, err := ioutil.ReadFile(expOut); err != nil {
-				assert.Fail(t, "Unable to read expected output: %v", err)
-				require.NoError(t, err, "Unable to read expected error file")
+				require.NoError(t, err, "Unable to read expected output file")
 			} else {
 				outScrubbed := strings.Replace(out.String(), path, "", -1)
 				lines := bufio.NewScanner(bytes.NewBuffer(bs))
