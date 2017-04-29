@@ -14,6 +14,11 @@ type moduleExtractor struct {
 
 func (m *moduleExtractor) Visit(n ast.Node) ast.Visitor {
 	switch n := n.(type) {
+	case *ast.Package:
+		if n.Name != "main" {
+			return nil
+		}
+		return m
 	case *ast.FuncDecl:
 		// We only care about the main func
 		if n.Name.Name != "main" {

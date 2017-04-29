@@ -13,10 +13,13 @@ func main() {
 	svc, err := service.WithModule(
 		uhttp.New(registerHTTPers, uhttp.WithInboundMiddleware(simpleInboundMiddleware{})),
 	).Build()
-
-	if err != nil {
-		log.Fatal("Unable to initialize service", "error", err)
-	}
+	checkError(err, "Unable to initialize service")
 
 	svc.Start()
+}
+
+func checkError(err error, msg string) {
+	if err != nil {
+		log.Fatal(msg, "error", err)
+	}
 }
