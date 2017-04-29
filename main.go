@@ -6,6 +6,7 @@ import (
 	"go/token"
 	"log"
 	"os"
+	"path/filepath"
 )
 
 func main() {
@@ -36,7 +37,11 @@ func dirOrHere() string {
 		here := os.Args[1]
 		stat, err := os.Stat(here)
 		if err == nil && stat.IsDir() {
-			return here
+			if abs, err := filepath.Abs(here); err != nil {
+				log.Fatalf("Unable to determine absolute path: %v\n", err)
+			} else {
+				return abs
+			}
 		}
 
 		log.Fatalf("Not a valid directory: %q, error: %v", here, err)

@@ -24,6 +24,8 @@ func TestRealCases(t *testing.T) {
 	wd, err := os.Getwd()
 	require.NoError(t, err, "Unable to get working directory")
 
+	cwd, err := os.Getwd()
+	require.NoError(t, err, "unable to determine cwd")
 	filepath.Walk(filepath.Join(wd, _testdata), func(path string, info os.FileInfo, err error) error {
 		require.NoError(t, err, "Unexpected error walking testdata")
 		if strings.HasSuffix(path, _testdata) {
@@ -31,7 +33,8 @@ func TestRealCases(t *testing.T) {
 			return nil
 		}
 		if info.IsDir() {
-			t.Run(path, func(t *testing.T) {
+			cleanPath := strings.Replace(path, cwd, "", 0)
+			t.Run(cleanPath, func(t *testing.T) {
 				out := &bytes.Buffer{}
 				result := extract(path)
 				// TODO check error codes
@@ -54,4 +57,40 @@ func TestRealCases(t *testing.T) {
 		}
 		return nil
 	})
+}
+
+func TestDirOrHere_Table(t *testing.T) {
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+
+	cases := []struct {
+		input    []string
+		expected string
+	}{
+		{nil, cwd},
+		{[]string{"."}, cwd},
+		{[]string{"testdata"}, filepath.Join(cwd, "testdata")},
+	}
+	for _, c := range cases {
+		t.Run(c.expected, func(t *testing.T) {
+			defer withArgs(c.input...)()
+			assert.Equal(t, c.expected, dirOrHere())
+		})
+	}
+}
+
+func TestDirOrHere_Dot(t *testing.T) {
+	defer withArgs()()
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	assert.Equal(t, cwd, dirOrHere())
+}
+
+func withArgs(args ...string) func() {
+	old := os.Args
+	new := append([]string{os.Args[0]}, args...)
+	os.Args = new
+	return func() {
+		os.Args = old
+	}
 }
