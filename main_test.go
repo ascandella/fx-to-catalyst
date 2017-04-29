@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -21,45 +22,44 @@ const (
 func TestRealCases(t *testing.T) {
 	t.Parallel()
 
-	wd, err := os.Getwd()
-	require.NoError(t, err, "Unable to get working directory")
-
 	cwd, err := os.Getwd()
 	require.NoError(t, err, "unable to determine cwd")
-	filepath.Walk(filepath.Join(wd, _testdata), func(path string, info os.FileInfo, err error) error {
+	testdata := filepath.Join(cwd, _testdata)
+	filepath.Walk(testdata, func(path string, info os.FileInfo, err error) error {
 		require.NoError(t, err, "Unexpected error walking testdata")
 		if strings.HasSuffix(path, _testdata) {
 			// skip the TLD
 			return nil
 		}
-		if info.IsDir() {
-			cleanPath := strings.Replace(path, cwd, "", 0)
-			t.Run(cleanPath, func(t *testing.T) {
-				out := &bytes.Buffer{}
-				result := extract(path)
-				// TODO check error codes
-				result.summarize(out)
-				expOut := filepath.Join(path, _expectedOutput)
-
-				if bs, err := ioutil.ReadFile(expOut); err != nil {
-					assert.Fail(t, "unable to read expected output: %v", err)
-					require.NoError(t, err, "Unable to read expected error file")
-				} else {
-					outScrubbed := strings.Replace(out.String(), path, "", -1)
-					lines := bufio.NewScanner(bytes.NewBuffer(bs))
-					for lines.Scan() {
-						line := lines.Text()
-						assert.Contains(t, outScrubbed, line)
-					}
-					require.NoError(t, lines.Err(), "got error scanning output")
-				}
-			})
+		if !info.IsDir() {
+			return nil
 		}
+		cleanPath := strings.Replace(path, testdata, "", 1)[1:]
+		t.Run(cleanPath, func(t *testing.T) {
+			out := &bytes.Buffer{}
+			result := extract(path)
+			// TODO check error codes
+			result.summarize(out)
+			expOut := filepath.Join(path, _expectedOutput)
+
+			if bs, err := ioutil.ReadFile(expOut); err != nil {
+				assert.Fail(t, "Unable to read expected output: %v", err)
+				require.NoError(t, err, "Unable to read expected error file")
+			} else {
+				outScrubbed := strings.Replace(out.String(), path, "", -1)
+				lines := bufio.NewScanner(bytes.NewBuffer(bs))
+				for lines.Scan() {
+					line := lines.Text()
+					assert.Contains(t, outScrubbed, line)
+				}
+				require.NoError(t, lines.Err(), "got error scanning output")
+			}
+		})
 		return nil
 	})
 }
 
-func TestDirOrHere_Table(t *testing.T) {
+func TestDirOrHere_Variations(t *testing.T) {
 	cwd, err := os.Getwd()
 	require.NoError(t, err)
 
@@ -71,19 +71,13 @@ func TestDirOrHere_Table(t *testing.T) {
 		{[]string{"."}, cwd},
 		{[]string{"testdata"}, filepath.Join(cwd, "testdata")},
 	}
+
 	for _, c := range cases {
-		t.Run(c.expected, func(t *testing.T) {
+		t.Run(fmt.Sprintf("%#v", c.input), func(t *testing.T) {
 			defer withArgs(c.input...)()
 			assert.Equal(t, c.expected, dirOrHere())
 		})
 	}
-}
-
-func TestDirOrHere_Dot(t *testing.T) {
-	defer withArgs()()
-	cwd, err := os.Getwd()
-	require.NoError(t, err)
-	assert.Equal(t, cwd, dirOrHere())
 }
 
 func withArgs(args ...string) func() {
