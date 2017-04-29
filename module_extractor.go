@@ -5,6 +5,8 @@ import (
 	"go/ast"
 	"go/token"
 	"io"
+	"os"
+	"strings"
 )
 
 const (
@@ -13,8 +15,11 @@ const (
 )
 
 type moduleExtractor struct {
-	fs      *token.FileSet
-	modules []moduleCreator
+	fs       *token.FileSet
+	modules  []moduleCreator
+	out      io.Writer
+	debugOut io.Writer
+	debugme  *bool
 }
 
 func (m *moduleExtractor) Visit(n ast.Node) ast.Visitor {
@@ -23,14 +28,14 @@ func (m *moduleExtractor) Visit(n ast.Node) ast.Visitor {
 		if n.Name != "main" {
 			return nil
 		}
-		debug("entering main package")
+		m.debug("entering main package")
 		return m
 	case *ast.FuncDecl:
 		// We only care about the main func
 		if n.Name.Name != "main" {
 			return nil
 		}
-		debug("entering main func")
+		m.debug("entering main func")
 		return m
 	case *ast.CallExpr:
 		switch fun := n.Fun.(type) {
@@ -40,7 +45,7 @@ func (m *moduleExtractor) Visit(n ast.Node) ast.Visitor {
 					m.extractWithModule(n.Args)
 					return m
 				} else {
-					debug("Ignoring SelectorExpr.X of non-WithModule %T %+v", x, x.Name)
+					m.debug("Ignoring SelectorExpr.X of non-WithModule %T %+v", x, x.Name)
 				}
 			}
 		}
@@ -59,7 +64,7 @@ func (m *moduleExtractor) extractWithModule(args []ast.Expr) {
 		case *ast.BasicLit:
 			m.addSimple(arg)
 		default:
-			debug("unknown arg to serice.WithModule, expected *ast.CallExpr, got %T %+v", arg, arg)
+			m.debug("unknown arg to serice.WithModule, expected *ast.CallExpr, got %T %+v", arg, arg)
 		}
 	}
 }
@@ -86,35 +91,77 @@ func (m *moduleExtractor) addModuleCall(call *ast.CallExpr) {
 		if x, ok := fun.X.(*ast.Ident); ok {
 			mc.pkgSel = x
 		} else {
-			debug("Unknown selector epr (non-Ident): %T %+v", x, x)
+			m.debug("Unknown selector epr (non-Ident): %T %+v", x, x)
 			return
 		}
 	default:
-		debug("Unknown call.Fun (non-SelectorExpr): %T %+v", fun, fun)
+		m.debug("Unknown call.Fun (non-SelectorExpr): %T %+v", fun, fun)
 		return
 	}
 	m.modules = append(m.modules, mc)
 }
 
-func (m *moduleExtractor) summarize(out io.Writer) int {
+func (m *moduleExtractor) isDebug() bool {
+	if *m.debugme {
+		return true
+	}
+	return os.Getenv("DEBUG_EXTRACT") != ""
+}
+
+func (m *moduleExtractor) debug(msg string, args ...interface{}) {
+	if m.debugme == nil || !(*m.debugme) {
+		return
+	}
+
+	if !strings.HasSuffix(msg, "\n") {
+		msg += "\n"
+	}
+	fmt.Fprintf(m.debugOut, msg, args...)
+}
+
+type extractOption func(*moduleExtractor)
+
+func withWriter(out io.Writer) extractOption {
+	return func(m *moduleExtractor) {
+		m.out = out
+		if m.debugOut != nil {
+			m.debugOut = out
+		}
+	}
+}
+
+func withDebug(out io.Writer) extractOption {
+	return func(m *moduleExtractor) {
+		m.debugOut = out
+	}
+}
+
+func (m *moduleExtractor) summarize(opts ...extractOption) int {
+	// set up default
+	m.out = os.Stdout
+	m.debugOut = os.Stderr
+	for _, opt := range opts {
+		opt(m)
+	}
+
 	if len(m.modules) == 0 {
-		fmt.Fprintf(out, "[ERROR] No UberFx modules detected\n")
+		fmt.Fprintf(m.out, "[ERROR] No UberFx modules detected\n")
 		return 1
 	}
 
-	fmt.Fprintf(out, "Input modules: \n\n")
+	fmt.Fprintf(m.out, "Input modules: \n\n")
 
 	for _, mod := range m.modules {
-		fmt.Fprintf(out, fmt.Sprintf("\t%v\n", mod))
+		fmt.Fprintf(m.out, fmt.Sprintf("\t%v\n", mod))
 	}
 
-	fmt.Fprintf(out, "\n\nCatalyst func:\n\nfunc init() {\n")
+	fmt.Fprintf(m.out, "\n\nCatalyst func:\n\nfunc init() {\n")
 
 	for _, mod := range m.modules {
-		fmt.Fprintf(out, fmt.Sprintf("\t%s\n", mod.AsCatalyst()))
+		fmt.Fprintf(m.out, fmt.Sprintf("\t%s\n", mod.AsCatalyst()))
 	}
 
-	fmt.Fprintf(out, "}\n")
+	fmt.Fprintf(m.out, "}\n")
 
 	return 0
 }

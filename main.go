@@ -11,7 +11,7 @@ import (
 
 func main() {
 	run := extract(dirOrHere())
-	os.Exit(run.summarize(os.Stdout))
+	os.Exit(run.summarize())
 }
 
 func extract(dir string) *moduleExtractor {

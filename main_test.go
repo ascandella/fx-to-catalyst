@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -39,13 +38,12 @@ func TestRealCases(t *testing.T) {
 		cleanPath := strings.Replace(path, testdata, "", 1)[1:]
 		t.Run(cleanPath, func(t *testing.T) {
 			debugout := &bytes.Buffer{}
-			defer hijackDebug(debugout)()
 
 			out := &bytes.Buffer{}
 			result := extract(path)
 
 			// TODO check error codes
-			result.summarize(out)
+			result.summarize(withWriter(out), withDebug(debugout))
 			expOut := filepath.Join(path, _expectedOutput)
 
 			if bs, err := ioutil.ReadFile(expOut); err != nil {
@@ -105,18 +103,5 @@ func withArgs(args ...string) func() {
 	os.Args = new
 	return func() {
 		os.Args = old
-	}
-}
-
-func hijackDebug(w io.Writer) func() {
-	oldDebug := _debugOut
-	oldEnabled := _debugEnabled
-
-	_debugOut = w
-	_debugEnabled = true
-
-	return func() {
-		_debugOut = oldDebug
-		_debugEnabled = oldEnabled
 	}
 }
