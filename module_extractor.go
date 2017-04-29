@@ -72,10 +72,6 @@ func (m *moduleExtractor) addModuleCall(call *ast.CallExpr) {
 	m.modules = append(m.modules, mc)
 }
 
-func debug(prefix string, node ast.Node) {
-	fmt.Printf("%s: %T %+v\n", prefix, node, node)
-}
-
 func (m *moduleExtractor) summarize(out io.Writer) int {
 	if len(m.modules) == 0 {
 		fmt.Fprintf(out, "[ERROR] No UberFx modules detected\n")
