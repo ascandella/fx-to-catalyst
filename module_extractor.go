@@ -7,6 +7,11 @@ import (
 	"io"
 )
 
+const (
+	// TODO: will be replaced with `fx` once di-refactor is done
+	_svcPackage = "service"
+)
+
 type moduleExtractor struct {
 	fs      *token.FileSet
 	modules []moduleCreator
@@ -18,28 +23,30 @@ func (m *moduleExtractor) Visit(n ast.Node) ast.Visitor {
 		if n.Name != "main" {
 			return nil
 		}
+		debug("entering main package")
 		return m
 	case *ast.FuncDecl:
 		// We only care about the main func
 		if n.Name.Name != "main" {
 			return nil
 		}
+		debug("entering main func")
 		return m
 	case *ast.CallExpr:
 		switch fun := n.Fun.(type) {
 		case *ast.SelectorExpr:
-			if x, ok := fun.X.(*ast.Ident); ok && x.Name == "service" {
-				if fun.Sel.Name == "WithModule" {
+			if x, ok := fun.X.(*ast.Ident); ok {
+				if x.Name == _svcPackage && fun.Sel.Name == "WithModule" {
 					m.extractWithModule(n.Args)
 					return m
+				} else {
+					debug("Ignoring SelectorExpr.X of non-WithModule %T %+v", x, x.Name)
 				}
 			}
 		}
 		return m
-
-	default:
-		return m
 	}
+	return m
 }
 
 func (m *moduleExtractor) extractWithModule(args []ast.Expr) {
@@ -49,10 +56,18 @@ func (m *moduleExtractor) extractWithModule(args []ast.Expr) {
 			m.addModuleCall(arg)
 		case *ast.Ident:
 			m.addModuleIdent(arg)
+		case *ast.BasicLit:
+			m.addSimple(arg)
 		default:
 			debug("unknown arg to serice.WithModule, expected *ast.CallExpr, got %T %+v", arg, arg)
 		}
 	}
+}
+
+func (m *moduleExtractor) addSimple(arg *ast.BasicLit) {
+	m.modules = append(m.modules, moduleCreator{
+		lit: arg,
+	})
 }
 
 func (m *moduleExtractor) addModuleIdent(arg *ast.Ident) {

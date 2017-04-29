@@ -54,6 +54,7 @@ func TestRealCases(t *testing.T) {
 				debugBytes, err := ioutil.ReadAll(debugout)
 				require.NoError(t, err, "Unable to read debug output buffer")
 				debugstr := string(debugBytes)
+				fmt.Printf("[debug captured]: %v\n", debugstr)
 
 				// don't care where this test was run, pretend relative paths
 				outScrubbed := strings.Replace(out.String(), path, "", -1)

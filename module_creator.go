@@ -13,6 +13,7 @@ var pkgMap = map[string]string{
 type moduleCreator struct {
 	pkgSel *ast.Ident
 	fnSel  *ast.SelectorExpr
+	lit    *ast.BasicLit
 	args   []ast.Expr
 }
 
@@ -44,18 +45,21 @@ func (m moduleCreator) writeArg(out io.Writer, arg ast.Expr) {
 }
 
 func (m moduleCreator) AsCatalyst() string {
-	modName, ok := pkgMap[m.pkgSel.Name]
-	if !ok {
-		modName = m.pkgSel.Name
-	}
-
 	out := &bytes.Buffer{}
 	out.WriteString("catalyst.Register(")
-	out.WriteString(modName)
-	// package-local methods will just have an ident
-	if m.fnSel != nil {
-		out.WriteString(".")
-		out.WriteString(m.fnSel.Sel.Name)
+
+	if m.pkgSel != nil {
+		modName, ok := pkgMap[m.pkgSel.Name]
+		if !ok {
+			modName = m.pkgSel.Name
+		}
+
+		out.WriteString(modName)
+		// package-local methods will just have an ident
+		if m.fnSel != nil {
+			out.WriteString(".")
+			out.WriteString(m.fnSel.Sel.Name)
+		}
 	}
 	// TODO handle case of invoked ctor with zero args.
 	if len(m.args) > 0 {
