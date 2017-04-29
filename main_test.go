@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -15,8 +16,9 @@ import (
 )
 
 const (
-	_testdata       = "testdata"
+	_debugTag       = "[DEBUG]"
 	_expectedOutput = "expected.output"
+	_testdata       = "testdata"
 )
 
 func TestRealCases(t *testing.T) {
@@ -36,8 +38,12 @@ func TestRealCases(t *testing.T) {
 		}
 		cleanPath := strings.Replace(path, testdata, "", 1)[1:]
 		t.Run(cleanPath, func(t *testing.T) {
+			debugout := &bytes.Buffer{}
+			defer hijackDebug(debugout)()
+
 			out := &bytes.Buffer{}
 			result := extract(path)
+
 			// TODO check error codes
 			result.summarize(out)
 			expOut := filepath.Join(path, _expectedOutput)
@@ -45,12 +51,25 @@ func TestRealCases(t *testing.T) {
 			if bs, err := ioutil.ReadFile(expOut); err != nil {
 				require.NoError(t, err, "Unable to read expected output file")
 			} else {
+				debugBytes, err := ioutil.ReadAll(debugout)
+				require.NoError(t, err, "Unable to read debug output buffer")
+				debugstr := string(debugBytes)
+
+				// don't care where this test was run, pretend relative paths
 				outScrubbed := strings.Replace(out.String(), path, "", -1)
 				lines := bufio.NewScanner(bytes.NewBuffer(bs))
+
+				// loop over lines for expected substrings
 				for lines.Scan() {
 					line := lines.Text()
-					assert.Contains(t, outScrubbed, line)
+					if strings.HasPrefix(line, _debugTag) {
+						line = strings.Replace(line, _debugTag, "", 1)
+						assert.Contains(t, debugstr, line, "Expected debug substring match")
+					} else {
+						assert.Contains(t, outScrubbed, line, "Expected substring match on generated output")
+					}
 				}
+
 				require.NoError(t, lines.Err(), "got error scanning output")
 			}
 		})
@@ -85,5 +104,18 @@ func withArgs(args ...string) func() {
 	os.Args = new
 	return func() {
 		os.Args = old
+	}
+}
+
+func hijackDebug(w io.Writer) func() {
+	oldDebug := _debugOut
+	oldEnabled := _debugEnabled
+
+	_debugOut = w
+	_debugEnabled = true
+
+	return func() {
+		_debugOut = oldDebug
+		_debugEnabled = oldEnabled
 	}
 }

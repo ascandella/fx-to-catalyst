@@ -47,10 +47,18 @@ func (m *moduleExtractor) extractWithModule(args []ast.Expr) {
 		switch arg := arg.(type) {
 		case *ast.CallExpr:
 			m.addModuleCall(arg)
+		case *ast.Ident:
+			m.addModuleIdent(arg)
 		default:
 			debug("unknown arg to serice.WithModule, expected *ast.CallExpr, got %T %+v", arg, arg)
 		}
 	}
+}
+
+func (m *moduleExtractor) addModuleIdent(arg *ast.Ident) {
+	m.modules = append(m.modules, moduleCreator{
+		pkgSel: arg,
+	})
 }
 
 func (m *moduleExtractor) addModuleCall(call *ast.CallExpr) {

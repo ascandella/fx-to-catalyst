@@ -52,15 +52,22 @@ func (m moduleCreator) AsCatalyst() string {
 	out := &bytes.Buffer{}
 	out.WriteString("catalyst.Register(")
 	out.WriteString(modName)
-	out.WriteString(".")
-	out.WriteString(m.fnSel.Sel.Name)
-	out.WriteString("(")
-
-	for _, arg := range m.args {
-		m.writeArg(out, arg)
+	// package-local methods will just have an ident
+	if m.fnSel != nil {
+		out.WriteString(".")
+		out.WriteString(m.fnSel.Sel.Name)
 	}
+	// TODO handle case of invoked ctor with zero args.
+	if len(m.args) > 0 {
+		out.WriteString("(")
 
-	out.WriteString("))")
+		for _, arg := range m.args {
+			m.writeArg(out, arg)
+		}
+
+		out.WriteString(")")
+	}
+	out.WriteString(")")
 
 	return out.String()
 }
